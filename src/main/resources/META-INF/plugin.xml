@@ -13,7 +13,16 @@
     <depends>intellij.indexing.shared</depends>
 
     <extensions defaultExtensionNs="com.intellij">
+        <registryKey key="shared.index.project.perforce.changes"
+                     description="Enable recent changes provider for Shared Indexes for Perforce managed projects"
+                     defaultValue="true"/>
+        <registryKey key="shared.index.project.perforce.max_changes"
+                     description="Max number of recent changes to return"
+                     defaultValue="5000"/>
         <projectsSharedIndexesRecentCommits implementation="dev.bmac.intellij.indexing.shared.project.PerforceRecentCommitProvider"/>
+
+        <sharedIndexHashExporter implementation="dev.bmac.intellij.indexing.shared.project.SharedIndexPerforceContentHashExporter"/>
+        <sharedIndexHashProvider implementation="dev.bmac.intellij.indexing.shared.project.SharedIndexPerforceBackedHashProvider"/>
     </extensions>
 
     <actions>
