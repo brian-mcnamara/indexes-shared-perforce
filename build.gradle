@@ -24,6 +24,14 @@ intellij {
     targetCompatibility = 11
 }
 
+def projectPath = new File("./")
+runIde {
+    maxHeapSize = "5g"
+    args = ['dump-shared-index', 'project', '--additional-hash=jar-archive',
+            '--additional-hash=perforce', '--project-id=test', '--commit=1',
+            '--output=' + projectPath + "/output", '--project-dir=' + System.getenv("PROJECT_HOME")]
+}
+
 compileKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }

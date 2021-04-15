@@ -4,7 +4,7 @@ import com.intellij.indexing.shared.platform.hash.SharedIndexContentHash
 
 object SharedIndexPerforceBackendHash : SharedIndexContentHash {
     override val hashLength: Int
-        get() = 25 //TODO random number!
+        get() = Long.SIZE_BYTES
     override val performanceRank: Double
         get() = 400.0
     override val providerId: String

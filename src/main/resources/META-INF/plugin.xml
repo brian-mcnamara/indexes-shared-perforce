@@ -11,6 +11,7 @@
          on how to target different products -->
     <depends>com.intellij.modules.platform</depends>
     <depends>intellij.indexing.shared</depends>
+    <depends>PerforceDirectPlugin</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <registryKey key="shared.index.project.perforce.changes"

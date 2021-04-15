@@ -13,9 +13,7 @@ import org.jetbrains.idea.perforce.perforce.CommandArguments
 import org.jetbrains.idea.perforce.perforce.P4File
 import org.jetbrains.idea.perforce.perforce.PerforceRunner
 import org.jetbrains.idea.perforce.perforce.connections.PerforceConnectionManager
-import java.io.IOException
-import java.io.LineNumberReader
-import java.io.StringReader
+import java.io.*
 import java.util.*
 import java.util.regex.Pattern
 
@@ -45,16 +43,20 @@ class PerforceRecentCommitProvider : ProjectSharedIndexRecentCommits {
             //the latest the client has
             commandArguments.append("cstat").append(perforceRoot.recursivePath + "#have")
             val manager = PerforceConnectionManager.getInstance(project)
-            val execResult = runner.executeP4Command(commandArguments.arguments, manager.getConnectionForFile(projectRoot)!!)
+            val execResult = runner.executeP4Command(commandArguments.arguments, manager.getConnectionForFile(perforceRoot)!!)
             return if (execResult.exitCode != 0) {
                 LOGGER.error("p4 returned non-zero when querying cstat")
                 emptyList()
-            } else parseCstatHaveList(execResult.stdout)
+            } else {
+                var list = emptyList<String>()
+                execResult.allowSafeStdoutUsage { list = parseCstatHaveList(it) }
+                list
+            }
         }
 
-        private fun parseCstatHaveList(output: String): List<String> {
+        private fun parseCstatHaveList(output: InputStream): List<String> {
             val result = LinkedList<String>()
-            val reader = LineNumberReader(StringReader(output))
+            val reader = LineNumberReader(InputStreamReader(output))
             val maxEntries = Registry.intValue("shared.index.project.perforce.max_changes")
             try {
                 var line: String?
