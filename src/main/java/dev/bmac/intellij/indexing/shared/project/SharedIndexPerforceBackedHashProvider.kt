@@ -62,30 +62,29 @@ class SharedIndexPerforceBackedHashProvider : SharedIndexContentHashProvider {
         private var future : Future<*>? = null
 
         private fun getHaveList(project: Project) : Map<String, FStat> {
-            //TODO is this "true" project root?
-            val perforceRoot = P4File.create(project.projectFile!!.parent.parent)
-            val runner = PerforceRunner.getInstance(project)
-            val commandArguments = CommandArguments()
-            //cstat returns a list of changes the client is aware of, which if it has (#have) them, can be used to determine
-            //the latest the client has. Also there exists fstatBulk in the plugin, but we only need clientFile and haveRev
-            //so using this to reduce the memory overhead for large codebases. Should add this back to perforce plugin
-            commandArguments.append("fstat").append("-T depotFile,clientFile,haveRev").append(perforceRoot.recursivePath + "#have")
-            val manager = PerforceConnectionManager.getInstance(project)
-            val execResult = runner.executeP4Command(commandArguments.arguments, manager.getConnectionForFile(perforceRoot)!!)
-            return if (execResult.exitCode != 0) {
-                LOGGER.error("fstat failed with non-zero exit code")
-                emptyMap()
-            } else {
-                var map = emptyMap<String,FStat>()
-                execResult.allowSafeStdoutUsage { map = parseFstat(it) }
-                map
+            val roots = getPerforceRoots(project)
+            val fileMap = HashMap<String, FStat>()
+            for (root in roots) {
+                val perforceRoot = P4File.create(root)
+                val runner = PerforceRunner.getInstance(project)
+                val commandArguments = CommandArguments()
+                //cstat returns a list of changes the client is aware of, which if it has (#have) them, can be used to determine
+                //the latest the client has. Also there exists fstatBulk in the plugin, but we only need clientFile and haveRev
+                //so using this to reduce the memory overhead for large codebases. Should add this back to perforce plugin
+                commandArguments.append("fstat").append("-T depotFile,clientFile,haveRev").append(perforceRoot.recursivePath + "#have")
+                val manager = PerforceConnectionManager.getInstance(project)
+                val execResult = runner.executeP4Command(commandArguments.arguments, manager.getConnectionForFile(perforceRoot)!!)
+                if (execResult.exitCode != 0) {
+                    LOGGER.error("fstat failed with non-zero exit code")
+                } else {
+                    execResult.allowSafeStdoutUsage { parseFstat(it, fileMap) }
+                }
             }
+            return fileMap
         }
 
-        private fun parseFstat(result : InputStream) : Map<String, FStat> {
+        private fun parseFstat(result : InputStream, fileMap : HashMap<String, FStat>) {
             val reader = LineNumberReader(InputStreamReader(result))
-            val fileMap = HashMap<String, FStat>()
-            FStat()
             try {
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
@@ -113,7 +112,6 @@ class SharedIndexPerforceBackedHashProvider : SharedIndexContentHashProvider {
             } catch (e: IOException) {
                 LOGGER.error("Failed to parse fstat result", e)
             }
-            return fileMap
         }
     }
 }
