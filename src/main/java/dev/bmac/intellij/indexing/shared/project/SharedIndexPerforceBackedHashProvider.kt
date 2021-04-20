@@ -1,11 +1,13 @@
 package dev.bmac.intellij.indexing.shared.project
 
 import com.google.common.hash.Hashing
+import com.intellij.ide.projectView.impl.ProjectRootsUtil
 import com.intellij.indexing.shared.platform.hash.SharedIndexContentHash
 import com.intellij.indexing.shared.platform.hash.SharedIndexContentHashProvider
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.util.indexing.IndexedFile
 import org.jetbrains.idea.perforce.perforce.CommandArguments
 import org.jetbrains.idea.perforce.perforce.FStat
@@ -39,10 +41,14 @@ class SharedIndexPerforceBackedHashProvider : SharedIndexContentHashProvider {
             val path = content.file.fileSystem.getNioPath(content.file)?.toString() ?: return null
             val fstat = fileMap[path] ?: return null
 
+            //Hack hack for Salesforce...
+            val fileIndex = ProjectRootManager.getInstance(content.project).fileIndex
+            val isSource = fileIndex.isInSource(content.file)
             //TODO figure out hashing
             return ByteBuffer.allocate(info.hashLength)
                     .putLong(fstat.haveRev.toULong().toLong())
                     .put(Hashing.sha1().hashString(fstat.depotFile, Charset.defaultCharset()).asBytes())
+                    .put(if (isSource) 0x01 else 0x00)
                     .array()
         }
         return null
