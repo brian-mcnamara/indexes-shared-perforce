@@ -19,7 +19,7 @@
                      defaultValue="true"/>
         <registryKey key="shared.index.project.perforce.max_changes"
                      description="Max number of recent changes to return"
-                     defaultValue="10000"/>
+                     defaultValue="5000"/>
         <projectsSharedIndexesRecentCommits implementation="dev.bmac.intellij.indexing.shared.project.PerforceRecentCommitProvider"/>
 
         <sharedIndexHashExporter implementation="dev.bmac.intellij.indexing.shared.project.SharedIndexPerforceContentHashExporter"/>

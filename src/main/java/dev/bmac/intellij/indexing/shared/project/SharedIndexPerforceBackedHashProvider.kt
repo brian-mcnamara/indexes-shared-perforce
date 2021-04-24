@@ -1,7 +1,6 @@
 package dev.bmac.intellij.indexing.shared.project
 
 import com.google.common.hash.Hashing
-import com.intellij.ide.projectView.impl.ProjectRootsUtil
 import com.intellij.indexing.shared.platform.hash.SharedIndexContentHash
 import com.intellij.indexing.shared.platform.hash.SharedIndexContentHashProvider
 import com.intellij.openapi.application.ApplicationManager
@@ -41,15 +40,23 @@ class SharedIndexPerforceBackedHashProvider : SharedIndexContentHashProvider {
             val path = content.file.fileSystem.getNioPath(content.file)?.toString() ?: return null
             val fstat = fileMap[path] ?: return null
 
+            if (fstat.action.isNotBlank()) {
+                //The file is checked out and could have modifications.
+                return null
+            }
+
             //Hack hack for Salesforce...
             val fileIndex = ProjectRootManager.getInstance(content.project).fileIndex
             val isSource = fileIndex.isInSource(content.file)
             //TODO figure out hashing
-            return ByteBuffer.allocate(info.hashLength)
+
+            val hash = ByteBuffer.allocate(info.hashLength)
                     .putLong(fstat.haveRev.toULong().toLong())
                     .put(Hashing.sha1().hashString(fstat.depotFile, Charset.defaultCharset()).asBytes())
                     .put(if (isSource) 0x01 else 0x00)
                     .array()
+
+            return hash
         }
         return null
     }
@@ -64,6 +71,7 @@ class SharedIndexPerforceBackedHashProvider : SharedIndexContentHashProvider {
         private val FSTAT_DEPOT_PREFIX = "... depotFile "
         private val FSTAT_CLIENT_PREFIX = "... clientFile "
         private val FSTAT_HAVEREV_PREFIX = "... haveRev "
+        private val FSTAT_ACTION_PREFIX = "... action "
         private val fileMapRef = AtomicReference<Map<String, FStat>?>()
         private var future : Future<*>? = null
 
@@ -77,7 +85,7 @@ class SharedIndexPerforceBackedHashProvider : SharedIndexContentHashProvider {
                 //cstat returns a list of changes the client is aware of, which if it has (#have) them, can be used to determine
                 //the latest the client has. Also there exists fstatBulk in the plugin, but we only need clientFile and haveRev
                 //so using this to reduce the memory overhead for large codebases. Should add this back to perforce plugin
-                commandArguments.append("fstat").append("-T depotFile,clientFile,haveRev").append(perforceRoot.recursivePath + "#have")
+                commandArguments.append("fstat").append("-T depotFile,clientFile,haveRev,action").append(perforceRoot.recursivePath + "#have")
                 val manager = PerforceConnectionManager.getInstance(project)
                 val execResult = runner.executeP4Command(commandArguments.arguments, manager.getConnectionForFile(perforceRoot)!!)
                 if (execResult.exitCode != 0) {
@@ -93,26 +101,27 @@ class SharedIndexPerforceBackedHashProvider : SharedIndexContentHashProvider {
             val reader = LineNumberReader(InputStreamReader(result))
             try {
                 var line: String?
+                var fstat = FStat()
                 while (reader.readLine().also { line = it } != null) {
-                    if (line!!.startsWith(FSTAT_DEPOT_PREFIX)) {
-                        val depotFile = line!!.substring(FSTAT_DEPOT_PREFIX.length)
-                        line = reader.readLine() ?: throw IOException("Unexpected end of file")
-                        if (!line!!.startsWith(FSTAT_CLIENT_PREFIX)) {
-                            LOGGER.warn("Unexpected content in fstat result")
-                            continue
+                    when {
+                        line!!.startsWith(FSTAT_DEPOT_PREFIX) -> {
+                            fstat.depotFile = line!!.substring(FSTAT_DEPOT_PREFIX.length)
                         }
-                        val file = line!!.substring(FSTAT_CLIENT_PREFIX.length)
-                        line = reader.readLine() ?: throw IOException("Unexpected end of file")
-                        if (!line!!.startsWith(FSTAT_HAVEREV_PREFIX)) {
-                            LOGGER.warn("Unexpected content in fstat result")
-                            continue
+                        line!!.startsWith(FSTAT_CLIENT_PREFIX) -> {
+                            fstat.clientFile = line!!.substring(FSTAT_CLIENT_PREFIX.length)
                         }
-                        val changelist = line!!.substring(FSTAT_HAVEREV_PREFIX.length)
-                        val fstat = FStat()
-                        fstat.depotFile = depotFile
-                        fstat.clientFile = file
-                        fstat.haveRev = changelist
-                        fileMap[file] = fstat
+                        line!!.startsWith(FSTAT_HAVEREV_PREFIX) -> {
+                            fstat.haveRev = line!!.substring(FSTAT_HAVEREV_PREFIX.length)
+                        }
+                        line!!.startsWith(FSTAT_ACTION_PREFIX) -> {
+                            fstat.action = line!!.substring(FSTAT_ACTION_PREFIX.length)
+                        }
+                        line!!.isBlank() -> {
+                            if (fstat.clientFile.isNotBlank()) {
+                                fileMap[fstat.clientFile] = fstat
+                            }
+                            fstat = FStat()
+                        }
                     }
                 }
             } catch (e: IOException) {
