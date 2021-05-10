@@ -1,11 +1,10 @@
 plugins {
-    id 'java'
-    id 'org.jetbrains.intellij' version '0.7.2'
+    id 'org.jetbrains.intellij' version '0.7.3'
     id "org.jetbrains.kotlin.jvm" version "1.4.32"
 }
 
-group 'org.example'
-version '1.0-SNAPSHOT'
+group 'dev.bmac.intellij'
+version '0.1'
 
 repositories {
     mavenCentral()
@@ -14,6 +13,7 @@ repositories {
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+    testImplementation 'org.mockito:mockito-core:3.9.0'
 }
 
 // See https://github.com/JetBrains/gradle-intellij-plugin/
@@ -41,9 +41,13 @@ compileTestKotlin {
 
 patchPluginXml {
     changeNotes """
-      Add change notes here.<br>
-      <em>most HTML tags may be used</em>"""
+        0.1: Initial beta version. Hash and commit provider
+      """
 }
 test {
     useJUnitPlatform()
+}
+
+publishPlugin {
+    token = System.getenv("JB_TOKEN")
 }

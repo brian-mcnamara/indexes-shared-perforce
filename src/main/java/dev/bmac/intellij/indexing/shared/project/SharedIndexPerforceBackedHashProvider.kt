@@ -7,11 +7,9 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.indexing.IndexedFile
-import org.jetbrains.idea.perforce.perforce.CommandArguments
-import org.jetbrains.idea.perforce.perforce.FStat
-import org.jetbrains.idea.perforce.perforce.P4File
-import org.jetbrains.idea.perforce.perforce.PerforceRunner
+import org.jetbrains.idea.perforce.perforce.*
 import org.jetbrains.idea.perforce.perforce.connections.PerforceConnectionManager
 import java.io.IOException
 import java.io.InputStream
@@ -22,7 +20,11 @@ import java.nio.charset.Charset
 import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicReference
 
-class SharedIndexPerforceBackedHashProvider : SharedIndexContentHashProvider {
+class SharedIndexPerforceBackedHashProvider(val getRunner: (Project) -> PerforceRunner =
+        { project: Project -> PerforceRunner.getInstance(project)},
+        val getPerforceRoots: (Project) -> List<VirtualFile> = { project -> dev.bmac.intellij.indexing.shared.project.getPerforceRoots(project) })
+: SharedIndexContentHashProvider {
+
     override val info: SharedIndexContentHash
         get() = SharedIndexPerforceBackendHash
 
@@ -66,36 +68,40 @@ class SharedIndexPerforceBackedHashProvider : SharedIndexContentHashProvider {
         fileMapRef.set(getHaveList(project))
     }
 
+    private fun runFstat(perforceRoot: P4File, project: Project): ExecResult {
+        val runner = getRunner(project)
+        val commandArguments = CommandArguments()
+        //cstat returns a list of changes the client is aware of, which if it has (#have) them, can be used to determine
+        //the latest the client has. Also there exists fstatBulk in the plugin, but we only need clientFile and haveRev
+        //so using this to reduce the memory overhead for large codebases. Should add this back to perforce plugin
+        commandArguments.append("fstat").append("-T depotFile,clientFile,haveRev,action").append(perforceRoot.recursivePath + "#have")
+        val manager = PerforceConnectionManager.getInstance(project)
+        return runner.executeP4Command(commandArguments.arguments, manager.getConnectionForFile(perforceRoot)!!)
+    }
+
+    fun getHaveList(project: Project) : Map<String, FStat> {
+        val roots = getPerforceRoots(project)
+        val fileMap = HashMap<String, FStat>()
+        for (root in roots) {
+            val perforceRoot = P4File.create(root)
+            val execResult = runFstat(perforceRoot, project)
+            if (execResult.exitCode != 0) {
+                LOGGER.error("fstat failed with non-zero exit code: " + execResult.stderr)
+            } else {
+                execResult.allowSafeStdoutUsage { parseFstat(it, fileMap) }
+            }
+        }
+        return fileMap
+    }
+
     companion object {
         private val LOGGER = Logger.getInstance(SharedIndexPerforceBackedHashProvider::class.java)
-        private val FSTAT_DEPOT_PREFIX = "... depotFile "
-        private val FSTAT_CLIENT_PREFIX = "... clientFile "
-        private val FSTAT_HAVEREV_PREFIX = "... haveRev "
-        private val FSTAT_ACTION_PREFIX = "... action "
+        private const val FSTAT_DEPOT_PREFIX = "... depotFile "
+        private const val FSTAT_CLIENT_PREFIX = "... clientFile "
+        private const val FSTAT_HAVEREV_PREFIX = "... haveRev "
+        private const val FSTAT_ACTION_PREFIX = "... action "
         private val fileMapRef = AtomicReference<Map<String, FStat>?>()
         private var future : Future<*>? = null
-
-        private fun getHaveList(project: Project) : Map<String, FStat> {
-            val roots = getPerforceRoots(project)
-            val fileMap = HashMap<String, FStat>()
-            for (root in roots) {
-                val perforceRoot = P4File.create(root)
-                val runner = PerforceRunner.getInstance(project)
-                val commandArguments = CommandArguments()
-                //cstat returns a list of changes the client is aware of, which if it has (#have) them, can be used to determine
-                //the latest the client has. Also there exists fstatBulk in the plugin, but we only need clientFile and haveRev
-                //so using this to reduce the memory overhead for large codebases. Should add this back to perforce plugin
-                commandArguments.append("fstat").append("-T depotFile,clientFile,haveRev,action").append(perforceRoot.recursivePath + "#have")
-                val manager = PerforceConnectionManager.getInstance(project)
-                val execResult = runner.executeP4Command(commandArguments.arguments, manager.getConnectionForFile(perforceRoot)!!)
-                if (execResult.exitCode != 0) {
-                    LOGGER.error("fstat failed with non-zero exit code")
-                } else {
-                    execResult.allowSafeStdoutUsage { parseFstat(it, fileMap) }
-                }
-            }
-            return fileMap
-        }
 
         private fun parseFstat(result : InputStream, fileMap : HashMap<String, FStat>) {
             val reader = LineNumberReader(InputStreamReader(result))

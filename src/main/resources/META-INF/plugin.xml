@@ -1,14 +1,12 @@
 <idea-plugin>
     <id>dev.bmac.indexes-shared-perforce</id>
     <name>Shared Indexes - Perforce</name>
-    <vendor email="brianmay27@gmail.com" url="bmac.dev">bmac.dev</vendor>
+    <vendor email="brianmay27@gmail.com" url="bmac.dev">Brian McNamara</vendor>
 
     <description><![CDATA[
-    Shared Indexes Perforce integration
+    Project Shared Indexes - Perforce integration
     ]]></description>
 
-    <!-- please see https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html
-         on how to target different products -->
     <depends>com.intellij.modules.platform</depends>
     <depends>intellij.indexing.shared</depends>
     <depends>PerforceDirectPlugin</depends>
@@ -25,8 +23,4 @@
         <sharedIndexHashExporter implementation="dev.bmac.intellij.indexing.shared.project.SharedIndexPerforceContentHashExporter"/>
         <sharedIndexHashProvider implementation="dev.bmac.intellij.indexing.shared.project.SharedIndexPerforceBackedHashProvider"/>
     </extensions>
-
-    <actions>
-        <!-- Add your actions here -->
-    </actions>
 </idea-plugin>
