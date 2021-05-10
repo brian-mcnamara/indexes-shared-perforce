@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>dev.bmac.indexes-shared-perforce</id>
     <name>Shared Indexes - Perforce</name>
-    <vendor email="brianmay27@gmail.com" url="bmac.dev">Brian McNamara</vendor>
+    <vendor email="brianmay27@gmail.com" url="https://bmac.dev">Brian McNamara</vendor>
 
     <description><![CDATA[
     Project Shared Indexes - Perforce integration
