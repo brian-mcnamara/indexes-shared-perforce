@@ -4,7 +4,17 @@
     <vendor email="brianmay27@gmail.com" url="https://bmac.dev">Brian McNamara</vendor>
 
     <description><![CDATA[
-    Project Shared Indexes - Perforce integration
+    Adds recent commit and index hash providers for <a href="https://www.jetbrains.com/help/idea/shared-indexes.html">Project Shared Indexes</a>
+    when using Perforce for project VCS.
+    <br/><br/>
+    Recent commit provider uses <b><kbd>p4 cstat</kbd></b> on the projects perforce root(s) and returns a ordered
+    result with the first item being the latest change.
+    <br/><br/>
+    The hash provider uses <b><kbd>p4 fstat</kbd></b> and generates a hash based on Depot path, have revision.
+    Files checked out for edit will be excluded from the hash.
+    <br/><br/>
+    To dump indexes with perforce hashes, follow the <a href="https://www.jetbrains.com/help/idea/shared-indexes.html#export-project-indexes-command-line">dump-shared-index</a>
+    instructions and adding <b><kbd>--additional-hash=perforce</kbd></b> to the arguments.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
