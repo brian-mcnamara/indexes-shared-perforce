@@ -17,13 +17,16 @@ class SharedIndexPerforceBackendHashProviderTest : BasePlatformTestCase() {
 
     val perforceRunner : PerforceRunner = Mockito.mock(PerforceRunner::class.java)
 
-    @BeforeEach
-    public fun init() {
-        setUp()
+    override fun setUp() {
+        super.setUp()
         ProjectLevelVcsManager.getInstance(project).directoryMappings = listOf(VcsDirectoryMapping(project.basePath!!, PerforceVcs.NAME))
     }
 
-    @Test
+    override fun tearDown() {
+        ProjectLevelVcsManager.getInstance(project).directoryMappings = listOf()
+        super.tearDown()
+    }
+
     fun testParseHaveList() {
         val execResult = ExecResult()
         execResult.exitCode = 0
